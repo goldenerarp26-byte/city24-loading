@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>City 24 Loading</title>
+<!--
+	City 24 loading screen (sv_loadingurl). Self-contained: no external fonts or scripts, so it loads
+	instantly. Written in ES5 so it also works in the older Awesomium browser of the default GMod branch.
+	Open it in a normal browser to see a simulated join.
+-->
+<style>
+	:root {
+		--bg: #0e1216;
+		--panel: rgba(24, 31, 38, 0.86);
+		--panel-light: #242e38;
+		--border: rgba(70, 110, 140, 0.63);
+		--accent: #5aaad2;
+		--text: #d2dee6;
+		--muted: #8294a0;
+		--warn: #e6aa32;
+	}
+
+	* { box-sizing: border-box; margin: 0; padding: 0; }
+
+	html, body {
+		width: 100%;
+		height: 100%;
+		overflow: hidden;
+		background: #0e1216;
+		background: var(--bg);
+		color: #d2dee6;
+		font-family: "Roboto", "Segoe UI", Tahoma, Arial, sans-serif;
+	}
+
+	/* Background: dark gradient, slow drifting grid and scanlines. */
+	#bg {
+		position: fixed;
+		top: 0; left: 0; right: 0; bottom: 0;
+		background:
+			radial-gradient(ellipse at 70% 30%, rgba(90, 170, 210, 0.16), transparent 60%),
+			radial-gradient(ellipse at 15% 90%, rgba(90, 170, 210, 0.08), transparent 55%),
+			linear-gradient(180deg, #121920 0%, #0b0f13 100%);
+	}
+
+	#grid {
+		position: fixed;
+		top: -60px; left: -60px; right: -60px; bottom: -60px;
+		background-image:
+			linear-gradient(rgba(90, 170, 210, 0.06) 1px, transparent 1px),
+			linear-gradient(90deg, rgba(90, 170, 210, 0.06) 1px, transparent 1px);
+		background-size: 60px 60px;
+		-webkit-animation: drift 30s linear infinite;
+		animation: drift 30s linear infinite;
+	}
+
+	@-webkit-keyframes drift { from { -webkit-transform: translate(0, 0); } to { -webkit-transform: translate(60px, 60px); } }
+	@keyframes drift { from { transform: translate(0, 0); } to { transform: translate(60px, 60px); } }
+
+	#scan {
+		position: fixed;
+		top: 0; left: 0; right: 0; bottom: 0;
+		background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.18) 0, rgba(0, 0, 0, 0.18) 1px, transparent 1px, transparent 3px);
+		pointer-events: none;
+	}
+
+	#sweep {
+		position: fixed;
+		left: 0; right: 0;
+		height: 140px;
+		background: linear-gradient(180deg, transparent, rgba(90, 170, 210, 0.07), transparent);
+		-webkit-animation: sweep 7s linear infinite;
+		animation: sweep 7s linear infinite;
+		pointer-events: none;
+	}
+
+	@-webkit-keyframes sweep { from { top: -140px; } to { top: 100%; } }
+	@keyframes sweep { from { top: -140px; } to { top: 100%; } }
+
+	/* Layout */
+	#wrap {
+		position: relative;
+		height: 100%;
+		padding: 5vh 6vw;
+		display: -webkit-box;
+		display: -webkit-flex;
+		display: flex;
+		-webkit-box-orient: vertical;
+		-webkit-flex-direction: column;
+		flex-direction: column;
+	}
+
+	header {
+		display: -webkit-box;
+		display: -webkit-flex;
+		display: flex;
+		-webkit-box-align: center;
+		-webkit-align-items: center;
+		align-items: center;
+	}
+
+	#emblem { width: 92px; height: 92px; margin-right: 26px; -webkit-flex-shrink: 0; flex-shrink: 0; }
+	#emblem .ring { -webkit-transform-origin: 50px 50px; transform-origin: 50px 50px; -webkit-animation: spin 24s linear infinite; animation: spin 24s linear infinite; }
+
+	@-webkit-keyframes spin { to { -webkit-transform: rotate(360deg); } }
+	@keyframes spin { to { transform: rotate(360deg); } }
+
+	.eyebrow {
+		font-size: 13px;
+		letter-spacing: 5px;
+		text-transform: uppercase;
+		color: #5aaad2;
+	}
+
+	h1 {
+		font-family: "Roboto Condensed", "Arial Narrow", "Segoe UI", sans-serif;
+		font-size: 72px;
+		line-height: 1;
+		font-weight: 700;
+		letter-spacing: 8px;
+		margin: 6px 0 4px;
+		text-shadow: 0 0 24px rgba(90, 170, 210, 0.35);
+	}
+
+	#servername { font-size: 16px; color: #8294a0; letter-spacing: 1px; }
+
+	#middle {
+		-webkit-box-flex: 1;
+		-webkit-flex: 1;
+		flex: 1;
+		display: -webkit-box;
+		display: -webkit-flex;
+		display: flex;
+		-webkit-box-align: center;
+		-webkit-align-items: center;
+		align-items: center;
+		padding: 4vh 0;
+	}
+
+	.panel {
+		background: rgba(24, 31, 38, 0.86);
+		border: 1px solid rgba(70, 110, 140, 0.63);
+		border-left: 3px solid #5aaad2;
+		padding: 20px 24px;
+	}
+
+	#broadcast { max-width: 640px; }
+
+	.label {
+		font-size: 11px;
+		letter-spacing: 3px;
+		text-transform: uppercase;
+		color: #8294a0;
+		margin-bottom: 10px;
+	}
+
+	.label .dot {
+		display: inline-block;
+		width: 7px; height: 7px;
+		border-radius: 50%;
+		background: #d2463c;
+		margin-right: 8px;
+		vertical-align: 1px;
+		-webkit-animation: blink 1.4s steps(2) infinite;
+		animation: blink 1.4s steps(2) infinite;
+	}
+
+	@-webkit-keyframes blink { 50% { opacity: 0; } }
+	@keyframes blink { 50% { opacity: 0; } }
+
+	#message {
+		font-size: 21px;
+		line-height: 1.5;
+		min-height: 96px;
+		-webkit-transition: opacity 0.6s;
+		transition: opacity 0.6s;
+	}
+
+	#message.fade { opacity: 0; }
+
+	#tipcount { margin-top: 12px; font-size: 12px; color: #8294a0; letter-spacing: 2px; }
+
+	/* Footer: details and progress. */
+	footer { width: 100%; }
+
+	#details {
+		display: -webkit-box;
+		display: -webkit-flex;
+		display: flex;
+		-webkit-flex-wrap: wrap;
+		flex-wrap: wrap;
+		margin-bottom: 18px;
+	}
+
+	.detail { margin-right: 44px; margin-bottom: 8px; }
+	.detail .k { font-size: 11px; letter-spacing: 3px; color: #8294a0; text-transform: uppercase; }
+	.detail .v { font-size: 17px; margin-top: 3px; font-family: Consolas, "Courier New", monospace; }
+
+	#statusrow {
+		display: -webkit-box;
+		display: -webkit-flex;
+		display: flex;
+		-webkit-box-pack: justify;
+		-webkit-justify-content: space-between;
+		justify-content: space-between;
+		-webkit-box-align: end;
+		-webkit-align-items: flex-end;
+		align-items: flex-end;
+		margin-bottom: 8px;
+	}
+
+	#status { font-size: 15px; letter-spacing: 1px; }
+	#status:before { content: "> "; color: #5aaad2; }
+	#percent { font-family: Consolas, "Courier New", monospace; font-size: 15px; color: #5aaad2; }
+
+	#bar {
+		height: 6px;
+		background: #242e38;
+		border: 1px solid rgba(70, 110, 140, 0.63);
+		overflow: hidden;
+	}
+
+	#fill {
+		height: 100%;
+		width: 0;
+		background: #5aaad2;
+		box-shadow: 0 0 12px rgba(90, 170, 210, 0.8);
+		-webkit-transition: width 0.4s;
+		transition: width 0.4s;
+	}
+
+	#bar.idle #fill {
+		width: 30%;
+		-webkit-animation: idle 1.6s ease-in-out infinite;
+		animation: idle 1.6s ease-in-out infinite;
+	}
+
+	@-webkit-keyframes idle { from { margin-left: -30%; } to { margin-left: 100%; } }
+	@keyframes idle { from { margin-left: -30%; } to { margin-left: 100%; } }
+
+	#file {
+		margin-top: 8px;
+		font-family: Consolas, "Courier New", monospace;
+		font-size: 12px;
+		color: #8294a0;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		height: 16px;
+	}
+
+	@media (max-width: 700px) {
+		h1 { font-size: 44px; letter-spacing: 4px; }
+		#emblem { width: 64px; height: 64px; margin-right: 16px; }
+		#message { font-size: 17px; }
+	}
+</style>
+</head>
+<body>
+	<div id="bg"></div>
+	<div id="grid"></div>
+	<div id="sweep"></div>
+	<div id="scan"></div>
+
+	<div id="wrap">
+		<header>
+			<svg id="emblem" viewBox="0 0 100 100" aria-hidden="true">
+				<g class="ring" fill="none" stroke="#5aaad2" stroke-width="2">
+					<circle cx="50" cy="50" r="46" stroke-dasharray="18 7" opacity="0.7"/>
+				</g>
+				<polygon points="50,14 81,32 81,68 50,86 19,68 19,32" fill="rgba(90,170,210,0.08)" stroke="#5aaad2" stroke-width="2.5"/>
+				<polygon points="50,28 69,39 69,61 50,72 31,61 31,39" fill="none" stroke="#d2dee6" stroke-width="1.5" opacity="0.6"/>
+				<text x="50" y="57" text-anchor="middle" font-family="Consolas, monospace" font-size="20" font-weight="bold" fill="#d2dee6">24</text>
+			</svg>
+			<div>
+				<div class="eyebrow">Universal Union // Sector Administration</div>
+				<h1>CITY 24</h1>
+				<div id="servername">Serious HL2RP</div>
+			</div>
+		</header>
+
+		<div id="middle">
+			<div id="broadcast" class="panel">
+				<div class="label"><span class="dot"></span><span id="msgtype">Civil broadcast</span></div>
+				<div id="message"></div>
+				<div id="tipcount"></div>
+			</div>
+		</div>
+
+		<footer>
+			<div id="details">
+				<div class="detail"><div class="k">Sector</div><div class="v" id="map">-</div></div>
+				<div class="detail"><div class="k">Capacity</div><div class="v" id="players">-</div></div>
+				<div class="detail"><div class="k">Framework</div><div class="v" id="gamemode">-</div></div>
+				<div class="detail"><div class="k">Citizen ID</div><div class="v" id="steamid">-</div></div>
+			</div>
+
+			<div id="statusrow">
+				<div id="status">Establishing uplink</div>
+				<div id="percent"></div>
+			</div>
+			<div id="bar" class="idle"><div id="fill"></div></div>
+			<div id="file"></div>
+		</footer>
+	</div>
+
+<script>
+(function () {
+	// Rotating panel: in-character broadcasts mixed with server tips.
+	var MESSAGES = [
+		["Civil broadcast", "Attention, citizens of City 24. Your cooperation is noted and appreciated. Remain in your assigned district and present your identification when requested."],
+		["Server tip", "Hold <b>E</b> on a door for more options. Civil Protection can kick doors open; anyone else will need the right tools."],
+		["Civil broadcast", "Loyalty is rewarded. Citizens who assist Civil Protection may receive priority rations and housing."],
+		["Server tip", "This is a serious roleplay server. Stay in character, and value your character's life as they would."],
+		["Civil broadcast", "Reminder: unauthorised gatherings, the possession of contraband and interference with Civil Protection are violations of the civil code."],
+		["Server tip", "Press <b>F1</b> to open your character menu, inventory and settings. You can set a datapad hotkey under HL2RP: Interface."],
+		["Civil broadcast", "Ration distribution proceeds as scheduled. Report to your assigned terminal with your identification card."],
+		["Server tip", "Civil Protection and Overwatch can bind voice lines to hotkeys in the Voice Lines tab of the Tab menu."],
+		["Civil broadcast", "Anti-civil activity has been reported in this sector. Citizens are advised to report suspicious behaviour to the nearest Civil Protection unit."],
+		["Server tip", "Crafting benches let you make furniture, tools and, if you know where to look, things the Combine would rather you didn't have."]
+	];
+
+	var $ = function (id) { return document.getElementById(id); };
+	var index = Math.floor(Math.random() * MESSAGES.length);
+	var filesTotal = 0, filesNeeded = 0;
+
+	function showMessage() {
+		var msg = MESSAGES[index];
+
+		$("message").className = "fade";
+
+		setTimeout(function () {
+			$("msgtype").innerHTML = msg[0];
+			$("message").innerHTML = msg[1];
+			$("tipcount").innerHTML = (index + 1) + " / " + MESSAGES.length;
+			$("message").className = "";
+		}, 600);
+
+		index = (index + 1) % MESSAGES.length;
+	}
+
+	function setText(id, text) {
+		$(id).textContent = text;
+	}
+
+	function updateProgress() {
+		if (filesTotal <= 0) return;
+
+		var done = Math.max(0, filesTotal - filesNeeded);
+		var pct = Math.min(100, Math.round(done / filesTotal * 100));
+
+		$("bar").className = "";
+		$("fill").style.width = pct + "%";
+		setText("percent", pct + "%  (" + done + " / " + filesTotal + ")");
+	}
+
+	// --- Callbacks GMod calls on the loading page -------------------------------------------------
+
+	window.GameDetails = function (servername, serverurl, mapname, maxplayers, steamid, gamemode) {
+		if (servername) setText("servername", servername);
+		if (mapname) setText("map", mapname);
+		if (maxplayers) setText("players", maxplayers + " slots");
+		if (gamemode) setText("gamemode", gamemode.toUpperCase());
+		if (steamid) setText("steamid", "#" + String(steamid).slice(-5));
+	};
+
+	window.SetFilesTotal = function (total) {
+		filesTotal = Number(total) || 0;
+		updateProgress();
+	};
+
+	window.SetFilesNeeded = function (needed) {
+		filesNeeded = Number(needed) || 0;
+		updateProgress();
+	};
+
+	window.DownloadingFile = function (fileName) {
+		setText("file", String(fileName).replace(/^.*[\/\\]/, ""));
+		filesNeeded = Math.max(0, filesNeeded - 1);
+		updateProgress();
+	};
+
+	window.SetStatusChanged = function (status) {
+		setText("status", status);
+
+		// Steps after the downloads have no file count, so show the moving bar instead.
+		if (/sending client info|client info sent|starting lua|lua initialised|workshop|mounting/i.test(status)) {
+			setText("file", "");
+		}
+	};
+
+	showMessage();
+	setInterval(showMessage, 9000);
+
+	// --- Browser preview: simulate a join when opened outside GMod -------------------------------
+
+	if (!/GMod|Valve|Awesomium/i.test(navigator.userAgent) && location.search.indexOf("nodemo") < 0) {
+		setTimeout(function () {
+			GameDetails("City 24 | Serious HL2RP | Helix", "", "rp_city24_v4_auralis", 64, "76561198000012345", "hl2rp");
+			SetStatusChanged("Retrieving server info...");
+		}, 800);
+
+		var files = ["materials/models/dpfilms/metropolice/skull.vtf", "models/player/combine_soldier.mdl", "sound/npc/metropolice/vo/apply.wav", "maps/rp_city24_v4_auralis.bsp", "materials/hl2rp/ui/datapad.png"];
+		var step = 0;
+
+		setTimeout(function () {
+			SetStatusChanged("Downloading workshop content...");
+			SetFilesTotal(40);
+			SetFilesNeeded(40);
+
+			var timer = setInterval(function () {
+				DownloadingFile(files[step % files.length]);
+				step++;
+
+				if (step >= 40) {
+					clearInterval(timer);
+					SetStatusChanged("Sending client info...");
+				}
+			}, 250);
+		}, 2000);
+	}
+})();
+</script>
+</body>
+</html>
